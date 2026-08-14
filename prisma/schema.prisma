@@ -1,0 +1,83 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  TEKNOLOGI
+  LOGISTIK
+  HC
+  FINANCE
+  PEMASARAN
+  APPROVER
+}
+
+model User {
+  id        String   @id @default(uuid())
+  nik       String   @unique
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  approvals Approval[]
+}
+
+model Project {
+  id            String      @id @default(uuid())
+  code          String      @unique
+  name          String
+  description   String?
+  status        String      @default("DRAFT")
+  
+  subtotalA     Float       @default(0)
+  subtotalB     Float       @default(0)
+  riskScore     Float       @default(0)
+  marginTarget  Float       @default(0)
+  finalPrice    Float       @default(0)
+
+  bomItems      BomItem[]
+  approvals     Approval[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model BomItem {
+  id          String   @id @default(uuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  system      String   
+  subsystem   String?  
+  itemCode    String?
+  description String
+  quantity    Float
+  unit        String   
+  
+  sapPrice    Float?   
+  rfiPrice    Float?   
+  selectedRef String   @default("SAP_LATEST")
+  scrapFactor Float    @default(1.0)
+  totalPrice  Float    @default(0)
+
+  isActive    Boolean  @default(true)
+}
+
+model Approval {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  stage     String   
+  status    String   
+  notes     String?
+  createdAt DateTime @default(now())
+}
