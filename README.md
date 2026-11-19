@@ -1,52 +1,63 @@
-# Enterprise Rolling Stock Cost Estimation & Form-2 HPP/DDP Platform
+# Multi-Division Manufacturing Cost Estimation & Approval Architecture (Conceptual Reference)
 
-**Author:** Oktafian Bayu Prakosa, S.T.  
-**Context:** Engineering Development Center (EDC) Intern Project, PT Industri Kereta Api (Persero) (Aug 2026 - Feb 2027)  
-**Stack:** Laravel 11.x (PHP 8.3), MySQL 8.0 (InnoDB), RESTful API (`/api/v1`), Vanilla JS Server-Sent Events (SSE)
+Author: Oktafian Bayu Prakosa, S.T.  
+Stack: Laravel 11 (PHP 8.3), MySQL 8.0 (InnoDB), REST API, Vanilla JavaScript (Server-Sent Events)
 
-> **Confidentiality & GCG Notice:**  
-> In compliance with State-Owned Enterprise Good Corporate Governance (GCG) and ISO 37001:2016 information security policies, this public repository documents the **sanitized architecture, deterministic Form-2 cost-engine formulas, OWASP Top 10 hardening matrix, and automated verification framework**. Proprietary internal corporate documents, historical procurement databases, and employee personal identifiers are excluded.
+> **Confidentiality & Dummy-Data Notice:**  
+> This repository is a **sanitized conceptual reference** illustrating the software architecture, security controls, and automated testing discipline I applied while working on a multi-division industrial cost-estimation system. All calculation examples, numeric values, role names, and workflow diagrams below are **illustrative dummy examples**. No proprietary company source code, real tender figures, internal pricing margins, API paths, or corporate documents are included.
 
----
+## Background
 
-## 1. Engineering Brief
+Complex heavy-manufacturing bids require synchronized inputs from engineering, procurement, labor planning, finance, commercial teams, and executive reviewers. Managing that handoff through detached spreadsheets creates version drift, unlogged manual overrides, and long audit reviews before a tender can be submitted.
 
-* **Challenge:** Manual cross-division tender spreadsheets introduced version drift, unverified margin overrides, and slow audit sign-off on high-value rolling stock bids scaling beyond Rp 500 Billion.
-* **Architecture:** Co-architected a unified 6-division full-stack Laravel 11 platform enforcing ISO 37001:2016 Segregation of Duties across 22 role personas, deterministic HPP/DDP consolidation, and cryptographic SHA-256 audit chaining.
-* **Verified Outcome:** Automated Form-2 HPP/DDP pricing and BAPHJ PDF generation, reduced factory network payload by **85%** via HTTP 304 ETag caching, and passed **180 automated tests (3,154 assertions, 100% pass)** plus 29 headless browser smoke tests.
+To address those failure modes, I co-architected a centralized web application separating write permissions per department, locking revisions during management review, and backing every calculation with deterministic automated tests.
 
----
+## Conceptual 6-Module Architecture (Illustrative Dummy Model)
 
-## 2. 6-Division Functional Integration & RBAC Boundaries
+Instead of exposing a single mutable spreadsheet, the architecture isolates six functional domains behind role-based boundaries:
 
-1. **Technology (`Teknologi/`):** Hierarchical 12-Car Bill of Materials (BOM), engineering drawing memos, and automated TKDN calculations aligned with Permenperin No. 29/2018.
-2. **Logistics (`Logistik/`):** Live Bank Indonesia JISDOR FX rates (USD, EUR, JPY, CNY), Incoterms 2020 landed-cost matrix (EXW/FOB to DDP), vendor RFI quotes, and historical SAP PO escalation.
-3. **Human Capital (`HC/`):** Direct manufacturing man-hour tariffs across 6 shop-floor work-centers, machine-hour rates, and official travel (SPPD) parameters.
-4. **Finance (`Finance/`):** Discount rates, WACC (Cost of Money), 4-pillar Bank Guarantees (Bid, Advance Payment, Performance, Warranty), Import L/C fees, and S-Curve cashflow modeling.
-5. **Marketing (`Pemasaran/`):** Tender parameters, 8 Variable-B direct supporting cost sub-modules, and Form-2 Master Consolidation (Subtotal A + Subtotal B + Executive Policy + 11% VAT + Cascade DDP).
-6. **Executive Approval (`Approval/`):** 5-stage sequential review (Stage 0 Pricing Manager through Stage 4 CEO) across 3 value tiers (`< Rp 50B`, `Rp 50B - 500B`, `> Rp 500B`), generating SHA-256 stamped BAPHJ PDF approval minutes.
+1. **Engineering Module:** Tracks hierarchical multi-unit Bill of Materials (BOM) structures and local-content classification rules.
+2. **Procurement & Logistics Module:** Applies multi-currency reference exchange rates, shipping delivery terms (Incoterms 2020), and vendor quotation histories.
+3. **Labor & Capacity Module:** Stores shop-floor work-center hourly tariffs, machine utilization hours, and field travel allowances.
+4. **Finance Module:** Holds financing cost parameters, bank guarantee structures, letter-of-credit provisions, and project cashflow schedules.
+5. **Commercial Consolidation Module:** Aggregates direct material, labor, and supporting costs into a unified tender summary with cascade delivery-term outputs.
+6. **Multi-Stage Approval Module:** Routes completed bids sequentially across management tiers and produces verifiable approval summary documents.
 
----
+### Illustrative Dummy Calculation Example
 
-## 3. OWASP Top 10 & ISO 37001:2016 Security Matrix
+To demonstrate how the calculation engine maintains deterministic arithmetic without exposing real corporate formulas or percentages, consider a simplified **dummy unit**:
 
-| Security Pillar | Mitigated Threat | Implementation Mechanism | Status |
-| :--- | :--- | :--- | :--- |
-| **A01: Access Control & SoD** | Cross-division mutation or out-of-turn sign-off | Sanctum RBAC (`auth:sanctum`), `EnforceDivisionBoundary` (22 personas, read-only cross-division isolation), `CheckApprovalStage` (HTTP 403) | Enforced |
-| **A03: Injection Defense** | CWE-1236 Excel formula injection & CWE-79 DOM XSS | `ExcelPricingService::sanitizeCsvCell()` neutralizes leading `=,+,-,@`; strict `escapeHtml()` on all dynamic DOM writes | Sanitized |
-| **A04: State & Replay Lock** | Revision bypass or duplicate form commits | `REVISION_REQUESTED` hard lock (HTTP 422) until Stage 0 resubmission; 60 s `X-Idempotency-Key` middleware (HTTP 409) | Locked |
-| **A07: Auth Hardening** | Credential stuffing & idle session hijacking | 15-min lockout after 5 failures (HTTP 429), `throttle:10,1`, 480-min token TTL, 30-min client auto-logout | Active |
-| **A08/A09: Forensic Audit** | Retrospective tampering with approval logs | Blockchain-like SHA-256 `audit_logs` chain (`prev_hash` / `chain_hash`), verified via `php artisan inka:verify-audit-chain` | Tamper-Proof |
-| **A10: SSRF & Uploads** | Malicious payloads or PDF renderer SSRF/LFI | Magic-byte `SecureFileInspector` (UUIDv4 storage) + Dompdf `isRemoteEnabled => false` and strict `chroot` jail | Isolated |
-| **ISO 37001 Anomaly Engine** | Abnormal margin or labor-ratio overrides | `CostAnomalyDetectorService` flags contingency outside 1.5% - 2.5%, margin outside 5% - 30%, or labor ratio outside 2% - 40% | Automated |
+```text
+[ILLUSTRATIVE DUMMY EXAMPLE - NOT REAL CORPORATE DATA]
 
----
+1. Direct Cost (Dummy Base)
+   Material Pool (Dummy)        = 100.00 units
+   Labor Hours x Tariff (Dummy) =  25.00 units
+   Subtotal Direct              = 125.00 units
 
-## 4. Performance & Automated Verification Gate
+2. Supporting Cost (Dummy)
+   Freight + Financing (Dummy)  =  15.00 units
+   Total Production Base        = 140.00 units
 
-| Verification Suite | Command / Mechanism | Scope & Verified Result |
+3. Commercial Policy & Delivery Output (Dummy)
+   Dummy Contingency + Margin   = +X% (configurable per policy table)
+   Applicable Tax               = +Y%
+   Final Delivered Quote        = Base + Policy + Tax + Delivery Cascade
+```
+
+All calculations run in deterministic fixed-precision backend services so repeated recalculations never suffer browser floating-point drift.
+
+## Security & Governance Patterns Applied
+
+| Control Area | Problem Addressed | Engineering Approach (Conceptual) |
 | :--- | :--- | :--- |
-| **Bandwidth Optimization** | Conditional HTTP 304 `If-None-Match` ETag | **85% payload reduction** on `/logistik/rates`, `/hc/rates`, and `/finance/rates` |
-| **Unit & Feature Suite** | `composer verify` | **180 automated tests (3,154 assertions, 100% pass, 0 warnings)** |
-| **Headless Smoke Suite** | `composer smoke` | **29 frontend division views** verified in headless Chromium (0 console/runtime errors) |
-| **Multi-Role E2E Suite** | `composer e2e` | **7 full cross-division tender and approval workflows** validated end-to-end |
+| Division Access Boundaries | Cross-department edits overwriting another team's numbers | Token-based RBAC across 22 generic personas with read-only visibility outside a user's own module |
+| Spreadsheet & Browser Input Hygiene | Formula injection in exported CSV/Excel files and DOM XSS | Server-side neutralization of leading formula characters (`=`, `+`, `-`, `@`) and strict HTML escaping |
+| Revision Locks & Idempotency | Duplicate submissions or edits during active approval review | State-machine lock returning HTTP 422 while a bid is under revision, paired with short-window idempotency keys |
+| Tamper-Evident Audit Trail | Unlogged changes to historical pricing decisions | Hash-chained SHA-256 audit table linking each event hash to the prior record (`prev_hash` to `chain_hash`) |
+| Safe Document Handling | Malicious uploads or external SSRF during PDF generation | Magic-byte file validation, randomized UUID disk names, and sandboxed offline PDF rendering |
+
+## Performance & Automated Verification
+
+* **Conditional HTTP 304 ETag Caching:** Master rate endpoints validate `If-None-Match` headers so unchanged reference tables return empty 304 responses, cutting factory network payload by **85%**.
+* **Automated Quality Gate:** Verified through **180 unit and feature tests (3,154 assertions, 100% pass rate)** covering calculation precision, permission boundaries, and approval lock transitions, supplemented by **29 headless browser smoke checks** and **7 multi-role end-to-end flows**.
